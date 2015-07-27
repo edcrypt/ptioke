@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from __future__ import unicode_literals
 from __future__ import print_function
 from prompt_toolkit.shortcuts import get_input
@@ -16,8 +18,10 @@ def main():
         try:
             text = get_input("{} > ".format(line_num), lexer=IokeLexer,
                 history=history, completer=ioke_completer)
-        except Exception:
+        except EOFError:
             break
+        except KeyboardInterrupt:
+            text = ""
         else:
             if text:
                 print('=> ', text)
