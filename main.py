@@ -18,17 +18,44 @@ IOKE_DEBUG = 'dbg:1> '
 
 ioke_completer = WordCompleter(IOKE_VOCAB)
 
+class IokeShell(object):
+    command_prompt = IOKE_PROMPT
+    debug_prompt = IOKE_DEBUG
+    prompts = (IOKE_PROMPT, IOKE_DEBUG)
+
+    def __init__(self, ioke_command=IOKE, spawner=pexpect.spawnu):
+        self._process = None
+        self._spawner = spawner
+        self._ioke_command = ioke_command
+
+    def start(self):
+        assert self._process is not None
+        self._process = self._spawner(self.ioke_command)
+
+    @property
+    def current_prompt(self):
+        return self.prompts[self._process.expect(self.prompts)]
+
+    @property
+    def output(self):
+        # TODO: Parse prints and +> (result)
+        return self._process.before
+
+    def execute(self, expression):
+        self._process.sendline(expression)
+
 def main():
-    ioke = pexpect.spawnu(IOKE)
+    ioke = IokeShell()
     history = History()
+    text = None
     line_num = 1
-    i = None
+    prompt = None
     while True:
         try:
             text = get_input("{} > ".format(line_num), lexer=IokeLexer,
                 history=history, completer=ioke_completer)
-            if i is None:
-                i = ioke.expect([IOKE_PROMPT, IOKE_DEBUG])
+            if prompt is None:
+                prompt = ioke.current_prompt
         except EOFError:
             break
         except KeyboardInterrupt:
@@ -36,10 +63,9 @@ def main():
         else:
             # TODO: diferentiate prompt (i = 0) and debug (i = 1)
             if text:
-                ioke.sendline(text)
-                i = ioke.expect([IOKE_PROMPT, IOKE_DEBUG])
-                print('echo> ', ioke.before)
-                # TODO: Parse prints and +> (result)
+                ioke.execute(text)
+                prompt = ioke.current_prompt
+                print('echo> ', ioke.output)
                 line_num += 1
     print("Goodbye")
 
