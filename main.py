@@ -26,7 +26,12 @@ RESULT_RE = re.compile(r'^\+\>(.*)', re.MULTILINE)
 
 ioke_completer = WordCompleter(IOKE_VOCAB)
 
+class ExitRepl(Exception):
+    pass
+
 class IokeShell(object):
+    """ Provides comunication with external Ioke process.
+    """
     command_prompt = IOKE_PROMPT
     debug_prompt = IOKE_DEBUG
     prompts = [IOKE_PROMPT, IOKE_DEBUG]
@@ -64,51 +69,81 @@ class IokeShell(object):
 # - Repl class
 # - Multiline mode
 # - Menus
-def main():
-    ioke = IokeShell()
-    ioke.start()
-    history = History()
-    text = None
-    line_num = 1
-    prompt = None
-    condition = False
-    while True:
+
+
+class Repl(object):
+    """ Main REPL implementation.
+    """
+    def __init__(self):
+        self._ioke = IokeShell()
+        self._history = History()
+        self.prompt = None
+        self._input_text = None
+        self.line_num = 1
+        self.condition = False
+
+    def _run_subprocess(self):
+        self._ioke.start()
+
+    def main_loop(self):
+        self._run_subprocess()
+        while True:
+            try:
+                self.process_io()
+            except ExitRepl:
+                break
+        print("Goodbye")
+
+    def execute(self, text):
+        self._ioke.execute(text)
         try:
-            if not condition:
+            return self._ioke.current_prompt
+        except pexpect.EOF as err:
+            raise ExitRepl(err)
+
+    def inc_line(self, n=1):
+        self.line_num += n
+
+    def process_io(self):
+        text = self._input_text
+        line_num = self.line_num
+        try:
+            if not self.condition:
                 text = get_input(IN_PROMPT.format(line_num), lexer=IokeLexer,
-                history=history, completer=ioke_completer)
+                    history=self._history, completer=ioke_completer)
             else:
-                choice = get_input(DBG_PROMPT)
-            if prompt is None:
-                prompt = ioke.current_prompt
-        except EOFError:
-            break
+                text = get_input(DBG_PROMPT)
+            self._input_text = text
+            if self.prompt is None:
+                self.prompt = self._ioke.current_prompt
+        except (EOFError, pexpect.EOF) as err:
+            raise ExitRepl(err)
         except KeyboardInterrupt:
-            text = ""
+            self._input_text = text = ""
             print("**Keyboard interrupt**")
-            print("Enter ctrl-c to exit")
+            print("Enter ctrl-d to exit")
         else:
             # TODO: deal with conditions (debug prompt)
-            if text and not condition:
-                ioke.execute(text)
-                prompt = ioke.current_prompt
+            if text:
+                self.prompt = prompt = self.execute(text)
                 if prompt == IOKE_PROMPT:
-                    printed, result = ioke.output
+                    self.condition = False
+                    printed, result = self._ioke.output
                     if printed:
                         print(printed)
                     if result != 'nil':
                         print(OUT_PROMPT.format(line_num), result)
                 elif prompt == IOKE_DEBUG:
-                    condition = True
-                    options, _ = ioke.output
+                    self.condition = True
+                    options, _ = self._ioke.output
                     print(options.strip())
                     # TODO:
                     # - Format and colorise traceback/options
                     # - Validate and send choice
                     # - loop until condition is resolved
                 print()
-                line_num += 1
-    print("Goodbye")
+                self.inc_line()
 
 if __name__ == '__main__':
-    main()
+    repl = Repl()
+    repl.main_loop()
