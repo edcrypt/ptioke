@@ -14,15 +14,14 @@ from pygments.lexers import IokeLexer
 IOKE = '/usr/bin/env ioke'
 IOKE_VOCAB  = ['method'] # TODO
 IOKE_PROMPT = 'iik> '
-IOKE_DEBUG = 'dbg:1> ' # TODO: regexp
+IOKE_DEBUG = r'dbg:([0-9]+?)([:]\w+?)?> '
 IOKE_EVAL = '+> '
 
 # TODO: colors
 IN_PROMPT = "In [{}]: "
-OUT_PROMPT = "Out [{}]:"
-DBG_PROMPT = "Choose a restart: "
-
-RESULT_RE = re.compile(r'^\+\>(.*)', re.MULTILINE)
+OUT_PROMPT = "Out [{}]: {}"
+DBG_PROMPT = "Condition #{} - Choose a restart: "
+RESTART_PROMPT = "    {} => "
 
 ioke_completer = WordCompleter(IOKE_VOCAB)
 
@@ -61,6 +60,14 @@ class IokeShell(object):
         stdout = stdout.replace(self.last_input, "").strip()
         return stdout, evalued
 
+    @property
+    def debug_level(self):
+        return self._process.match.groups()[0]
+
+    @property
+    def restart(self):
+        return self._process.match.groups()[1]
+
     def execute(self, expression):
         self.last_input = expression
         self._process.sendline(expression)
@@ -81,6 +88,8 @@ class Repl(object):
         self._input_text = None
         self.line_num = 1
         self.condition = False
+        self.debug_level = 1
+        self.restart = None
 
     def _run_subprocess(self):
         self._ioke.start()
@@ -112,7 +121,10 @@ class Repl(object):
                 text = get_input(IN_PROMPT.format(line_num), lexer=IokeLexer,
                     history=self._history, completer=ioke_completer)
             else:
-                text = get_input(DBG_PROMPT)
+                if self.restart is not None:
+                    text = get_input(RESTART_PROMPT.format(self.restart))
+                else:
+                    text = get_input(DBG_PROMPT.format(self.debug_level))
             self._input_text = text
             if self.prompt is None:
                 self.prompt = self._ioke.current_prompt
@@ -132,16 +144,20 @@ class Repl(object):
                     if printed:
                         print(printed)
                     if result != 'nil':
-                        print(OUT_PROMPT.format(line_num), result)
+                        print(OUT_PROMPT.format(line_num, result))
+                    print()
                 elif prompt == IOKE_DEBUG:
                     self.condition = True
                     options, _ = self._ioke.output
-                    print(options.strip())
+                    self.debug_level = self._ioke.debug_level
+                    self.restart = self._ioke.restart
+                    options = options.strip()
+                    if options:
+                        print(options)
                     # TODO:
                     # - Format and colorise traceback/options
-                    # - Validate and send choice
+                    # - Show dbg shell number
                     # - loop until condition is resolved
-                print()
                 self.inc_line()
 
 if __name__ == '__main__':
