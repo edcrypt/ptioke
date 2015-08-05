@@ -14,13 +14,13 @@ from pygments.lexers import IokeLexer
 IOKE = '/usr/bin/env ioke'
 IOKE_VOCAB  = ['method'] # TODO
 IOKE_PROMPT = 'iik> '
-IOKE_DEBUG = 'dbg:1> '
+IOKE_DEBUG = 'dbg:1> ' # TODO: regexp
 IOKE_EVAL = '+> '
 
 # TODO: colors
 IN_PROMPT = "In [{}]: "
 OUT_PROMPT = "Out [{}]:"
-DBG_PROMPT = "Err! [{}]: "
+DBG_PROMPT = "Choose a restart: "
 
 RESULT_RE = re.compile(r'^\+\>(.*)', re.MULTILINE)
 
@@ -48,19 +48,22 @@ class IokeShell(object):
 
     @property
     def output(self):
-        stdout, evalued = '', ''
-        output = self._process.before
-        if IOKE_EVAL in output:
-            stdout, _, evalued = output.partition(IOKE_EVAL)
-            stdout = stdout.replace(self.last_input, "").strip()
+        evalued = ''
+        stdout = self._process.before
+        if IOKE_EVAL in stdout:
+            stdout, _, evalued = stdout.partition(IOKE_EVAL)
             evalued = evalued.strip()
+        stdout = stdout.replace(self.last_input, "").strip()
         return stdout, evalued
 
     def execute(self, expression):
         self.last_input = expression
         self._process.sendline(expression)
 
-# TODO: Repl class
+# TODO:
+# - Repl class
+# - Multiline mode
+# - Menus
 def main():
     ioke = IokeShell()
     ioke.start()
@@ -75,7 +78,7 @@ def main():
                 text = get_input(IN_PROMPT.format(line_num), lexer=IokeLexer,
                 history=history, completer=ioke_completer)
             else:
-                choice = get_input(DBG_PROMPT.format(1))
+                choice = get_input(DBG_PROMPT)
             if prompt is None:
                 prompt = ioke.current_prompt
         except EOFError:
@@ -89,13 +92,16 @@ def main():
                 prompt = ioke.current_prompt
                 if prompt == IOKE_PROMPT:
                     printed, result = ioke.output
-                    print(printed)
+                    if printed:
+                        print(printed)
                     if result != 'nil':
                         print(OUT_PROMPT.format(line_num), result)
                 elif prompt == IOKE_DEBUG:
                     condition = True
+                    options, _ = ioke.output
+                    print(options.strip())
                     # TODO:
-                    # - Parse and show options
+                    # - Format and colorise traceback/options
                     # - Validate and send choice
                     # - loop until condition is resolved
                 print()
