@@ -15,10 +15,12 @@ IOKE = '/usr/bin/env ioke'
 IOKE_VOCAB  = ['method'] # TODO
 IOKE_PROMPT = 'iik> '
 IOKE_DEBUG = 'dbg:1> '
-#IOKE_RESULT = '\+> .*'
+IOKE_EVAL = '+> '
 
+# TODO: colors
 IN_PROMPT = "In [{}]: "
 OUT_PROMPT = "Out [{}]:"
+DBG_PROMPT = "Err! [{}]: "
 
 RESULT_RE = re.compile(r'^\+\>(.*)', re.MULTILINE)
 
@@ -28,6 +30,7 @@ class IokeShell(object):
     command_prompt = IOKE_PROMPT
     debug_prompt = IOKE_DEBUG
     prompts = [IOKE_PROMPT, IOKE_DEBUG]
+    last_input = ""
 
     def __init__(self, ioke_command=IOKE, spawner=pexpect.spawnu):
         self._process = None
@@ -45,16 +48,19 @@ class IokeShell(object):
 
     @property
     def output(self):
-        # TODO: Parse prints and +> (result)
-        result = RESULT_RE.findall(self._process.before)
-        if result is None:
-            return
-        else:
-            return result[0].strip()
+        stdout, evalued = '', ''
+        output = self._process.before
+        if IOKE_EVAL in output:
+            stdout, _, evalued = output.partition(IOKE_EVAL)
+            stdout = stdout.replace(self.last_input, "").strip()
+            evalued = evalued.strip()
+        return stdout, evalued
 
     def execute(self, expression):
+        self.last_input = expression
         self._process.sendline(expression)
 
+# TODO: Repl class
 def main():
     ioke = IokeShell()
     ioke.start()
@@ -62,10 +68,14 @@ def main():
     text = None
     line_num = 1
     prompt = None
+    condition = False
     while True:
         try:
-            text = get_input(IN_PROMPT.format(line_num), lexer=IokeLexer,
+            if not condition:
+                text = get_input(IN_PROMPT.format(line_num), lexer=IokeLexer,
                 history=history, completer=ioke_completer)
+            else:
+                choice = get_input(DBG_PROMPT.format(1))
             if prompt is None:
                 prompt = ioke.current_prompt
         except EOFError:
@@ -74,11 +84,20 @@ def main():
             text = ""
         else:
             # TODO: deal with conditions (debug prompt)
-            if text:
+            if text and not condition:
                 ioke.execute(text)
                 prompt = ioke.current_prompt
                 if prompt == IOKE_PROMPT:
-                    print(OUT_PROMPT.format(line_num), ioke.output)
+                    printed, result = ioke.output
+                    print(printed)
+                    if result != 'nil':
+                        print(OUT_PROMPT.format(line_num), result)
+                elif prompt == IOKE_DEBUG:
+                    condition = True
+                    # TODO:
+                    # - Parse and show options
+                    # - Validate and send choice
+                    # - loop until condition is resolved
                 print()
                 line_num += 1
     print("Goodbye")
