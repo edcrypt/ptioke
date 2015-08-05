@@ -135,7 +135,6 @@ class Repl(object):
             print("**Keyboard interrupt**")
             print("Enter ctrl-d to exit")
         else:
-            # TODO: deal with conditions (debug prompt)
             if text:
                 self.prompt = prompt = self.execute(text)
                 if prompt == IOKE_PROMPT:
@@ -154,10 +153,7 @@ class Repl(object):
                     options = options.strip()
                     if options:
                         print(options)
-                    # TODO:
-                    # - Format and colorise traceback/options
-                    # - Show dbg shell number
-                    # - loop until condition is resolved
+                    # TODO: Format and colorise traceback/options
                 self.inc_line()
 
 if __name__ == '__main__':
