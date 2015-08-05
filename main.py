@@ -85,6 +85,8 @@ def main():
             break
         except KeyboardInterrupt:
             text = ""
+            print("**Keyboard interrupt**")
+            print("Enter ctrl-c to exit")
         else:
             # TODO: deal with conditions (debug prompt)
             if text and not condition:
