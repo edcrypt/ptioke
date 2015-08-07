@@ -104,8 +104,13 @@ class IokeShell(object):
 
 # TODO:
 # - Out [n]: prompt after restart with multiple returns
-# - Multiline mode
-# - Menus
+# - Repl banner
+# - Vi/Emacs mode
+# - System commands - https://github.com/jonathanslenders/python-prompt-toolkit/blob/master/examples/system-prompt.py
+# - Multiline mode - https://github.com/jonathanslenders/python-prompt-toolkit/blob/master/examples/get-multiline-input.py
+# - Keybinding for multiline mode - https://github.com/jonathanslenders/python-prompt-toolkit/blob/master/examples/get-password-with-toggle-display-shortcut.py
+# - Persistent history - https://github.com/jonathanslenders/python-prompt-toolkit/blob/master/examples/persistent-history.py
+# - Toolbar - https://github.com/jonathanslenders/python-prompt-toolkit/blob/master/examples/bottom-toolbar.py
 
 class Repl(object):
     """ Main REPL implementation.
@@ -156,7 +161,6 @@ class Repl(object):
             (Token.Restart, '    {}'.format(self.restart)),
             (Token.ArgArrow, ' => '),
         ]
-
 
     def execute(self, text):
         self._ioke.execute(text)
