@@ -10,6 +10,10 @@ from prompt_toolkit.shortcuts import get_input
 from prompt_toolkit.history import History
 from prompt_toolkit.contrib.completers import WordCompleter
 from pygments.lexers import IokeLexer
+from pygments.style import Style
+from pygments.token import Token
+from pygments.styles.default import DefaultStyle
+
 
 IOKE = '/usr/bin/env ioke'
 IOKE_VOCAB  = ['method'] # TODO
@@ -18,15 +22,41 @@ IOKE_DEBUG = r'dbg:([0-9]+?)([:]\w+?)?> '
 IOKE_EVAL = '+> '
 
 # TODO: colors
-IN_PROMPT = "In [{}]: "
 OUT_PROMPT = "Out [{}]: {}"
-DBG_PROMPT = "Condition #{} - Choose a restart: "
-RESTART_PROMPT = "    {} => "
 
 ioke_completer = WordCompleter(IOKE_VOCAB)
 
 class ExitRepl(Exception):
     pass
+
+class DocumentStyle(Style):
+    styles = {
+        # completition menu
+        Token.Menu.Completions.Completion.Current: 'bg:#00aaaa #000000',
+        Token.Menu.Completions.Completion: 'bg:#008888 #ffffff',
+        Token.Menu.Completions.ProgressButton: 'bg:#003333',
+        Token.Menu.Completions.ProgressBar: 'bg:#00aaaa',
+
+        # prompt
+        Token.Prefix: '#884444',
+        Token.OpenBracket: '#00aa00',
+        Token.CloseBracket: '#00aa00',
+        Token.LineNum: '#BB0000',
+        Token.Collon: '#884444',
+
+        # condition
+        Token.ConditionPrefix: '#BB0000',
+        Token.Sharp: '#884444',
+        Token.ConditionNumber: '#BB0000',
+        Token.Separator: '#FFFFFF',
+        Token.ChooseRestart: '#FFFFFF underline',
+
+        # restart
+        Token.Restart: '#0000FF',
+        Token.ArgsArrow: '#FFFFFF',
+    }
+    styles.update(DefaultStyle.styles)
+
 
 class IokeShell(object):
     """ Provides comunication with external Ioke process.
@@ -73,10 +103,9 @@ class IokeShell(object):
         self._process.sendline(expression)
 
 # TODO:
-# - Repl class
+# - Out [n]: prompt after restart with multiple returns
 # - Multiline mode
 # - Menus
-
 
 class Repl(object):
     """ Main REPL implementation.
@@ -103,6 +132,32 @@ class Repl(object):
                 break
         print("Goodbye")
 
+    def get_in_prompt_tokens(self, cli):
+        return [
+            (Token.Prefix, 'In '),
+            (Token.OpenBracket, '['),
+            (Token.LineNum, str(self.line_num)),
+            (Token.CloseBracket, ']'),
+            (Token.Collon, ': '),
+        ]
+
+    def get_condition_prompt_tokens(self, cli):
+        return [
+            (Token.ConditionPrefix, 'ERR! '),
+            (Token.Sharp, '#'),
+            (Token.ConditionNumber, str(self.debug_level)),
+            (Token.Separator, ' - '),
+            (Token.ChooseRestart, 'Choose a restart'),
+            (Token.Collon, ': ')
+        ]
+
+    def get_restart_prompt_tokens(self, cli):
+        return [
+            (Token.Restart, '    {}'.format(self.restart)),
+            (Token.ArgArrow, ' => '),
+        ]
+
+
     def execute(self, text):
         self._ioke.execute(text)
         try:
@@ -118,13 +173,18 @@ class Repl(object):
         line_num = self.line_num
         try:
             if not self.condition:
-                text = get_input(IN_PROMPT.format(line_num), lexer=IokeLexer,
-                    history=self._history, completer=ioke_completer)
+                text = get_input(
+                    get_prompt_tokens=self.get_in_prompt_tokens, lexer=IokeLexer,
+                    history=self._history, completer=ioke_completer, style=DocumentStyle)
             else:
                 if self.restart is not None:
-                    text = get_input(RESTART_PROMPT.format(self.restart))
+                    text = get_input(
+                        get_prompt_tokens=self.get_restart_prompt_tokens,
+                        style=DocumentStyle)
                 else:
-                    text = get_input(DBG_PROMPT.format(self.debug_level))
+                    text = get_input(
+                        get_prompt_tokens=self.get_condition_prompt_tokens,
+                        style=DocumentStyle)
             self._input_text = text
             if self.prompt is None:
                 self.prompt = self._ioke.current_prompt
