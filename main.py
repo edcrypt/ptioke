@@ -106,6 +106,7 @@ class IokeShell(object):
 # - Out [n]: prompt after restart with multiple returns
 # - Repl banner
 # - Vi/Emacs mode
+# - Up Arrow History Search - https://github.com/jonathanslenders/python-prompt-toolkit/blob/master/examples/up-arrow-partial-string-matching.py
 # - System commands - https://github.com/jonathanslenders/python-prompt-toolkit/blob/master/examples/system-prompt.py
 # - Multiline mode - https://github.com/jonathanslenders/python-prompt-toolkit/blob/master/examples/get-multiline-input.py
 # - Keybinding for multiline mode - https://github.com/jonathanslenders/python-prompt-toolkit/blob/master/examples/get-password-with-toggle-display-shortcut.py
